@@ -213,6 +213,37 @@ function buildMentionTags(emails) {
     }
     console.log(`Wrote ${templateRows.length} row(s) into ${TEMPLATE_SHEET_NAME}!A${dataStartRow}:M${dataEndRow}`);
 
+    // --- Draw borders around the data cells just written ---
+    const borderStyle = { style: "SOLID", width: 1, color: { red: 0, green: 0, blue: 0 } };
+    const borderResp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
+      method: "POST",
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requests: [{
+          updateBorders: {
+            range: {
+              sheetId: templateSheetId,
+              startRowIndex: dataStartRow - 1,
+              endRowIndex: dataEndRow,
+              startColumnIndex: 0,
+              endColumnIndex: 13, // A..M
+            },
+            top: borderStyle,
+            bottom: borderStyle,
+            left: borderStyle,
+            right: borderStyle,
+            innerHorizontal: borderStyle,
+            innerVertical: borderStyle,
+          },
+        }],
+      }),
+    });
+    if (!borderResp.ok) {
+      console.warn("Failed to draw borders on New Shop Template:", await borderResp.text());
+    } else {
+      console.log(`Drew borders on ${TEMPLATE_SHEET_NAME}!A${dataStartRow}:M${dataEndRow}`);
+    }
+
     // --- Mark processed Tracker rows: column T = DONE_VALUE ---
     const trackerUpdateData = combinedShops.map(shop => ({
       range: `${TRACKER_SHEET_NAME}!T${shop.rowNumber}`,
@@ -388,6 +419,37 @@ function buildMentionTags(emails) {
       console.warn("Failed to clear New Shop Template after sending:", await clearAfterResp.text());
     } else {
       console.log(`Cleared ${TEMPLATE_SHEET_NAME}!A${dataStartRow}:M2000 after sending.`);
+    }
+
+    // --- Also clear the borders drawn earlier, so the sheet is fully blank between runs ---
+    const noBorder = { style: "NONE" };
+    const clearBorderResp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
+      method: "POST",
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        requests: [{
+          updateBorders: {
+            range: {
+              sheetId: templateSheetId,
+              startRowIndex: dataStartRow - 1,
+              endRowIndex: 2000,
+              startColumnIndex: 0,
+              endColumnIndex: 13, // A..M
+            },
+            top: noBorder,
+            bottom: noBorder,
+            left: noBorder,
+            right: noBorder,
+            innerHorizontal: noBorder,
+            innerVertical: noBorder,
+          },
+        }],
+      }),
+    });
+    if (!clearBorderResp.ok) {
+      console.warn("Failed to clear borders on New Shop Template:", await clearBorderResp.text());
+    } else {
+      console.log(`Cleared borders on ${TEMPLATE_SHEET_NAME}!A${dataStartRow}:M2000 after sending.`);
     }
 
     // --- Cleanup temp sheet ---
