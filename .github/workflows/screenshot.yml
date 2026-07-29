@@ -2,7 +2,7 @@ name: Sheet (private) -> PNG -> SeaTalk
 
 on:
   schedule:
-    - cron: "30 6 * * *"     # chạy 16:00 giờ Việt Nam mỗi ngày
+    - cron: "30 6 * * *"     # chạy 13:30 giờ Việt Nam mỗi ngày
   workflow_dispatch:          # cho phép bấm Run thủ công
 
 jobs:
