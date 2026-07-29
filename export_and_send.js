@@ -379,6 +379,17 @@ function buildMentionTags(emails) {
     console.log("SeaTalk file status:", fileResp.status);
     console.log("SeaTalk file response:", await fileResp.text());
 
+    // --- Clear the data just mapped into New Shop Template (reset for next run) ---
+    const clearAfterResp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(`${TEMPLATE_SHEET_NAME}!A${dataStartRow}:M2000`)}:clear`,
+      { method: "POST", headers: { ...authHeaders, "Content-Type": "application/json" }, body: JSON.stringify({}) }
+    );
+    if (!clearAfterResp.ok) {
+      console.warn("Failed to clear New Shop Template after sending:", await clearAfterResp.text());
+    } else {
+      console.log(`Cleared ${TEMPLATE_SHEET_NAME}!A${dataStartRow}:M2000 after sending.`);
+    }
+
     // --- Cleanup temp sheet ---
     if (createdTemp && tempSheetId) {
       await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
