@@ -70,6 +70,7 @@ const TRACKER_COLS = {
   bulky: "AC",
   inventoryZone: "AD",
   allowShopeeMTF: "AF",
+  ccEmail: "N",
 };
 
 // Column order A..M in "New Shop Template"
@@ -87,10 +88,12 @@ const DSM_EMAILS = [
   "duy.phunganh@shopee.com",
   "trang.vungoc@shopee.com",
 ];
-const WH_EMAILS = [
-  "thanhngan.nguyenngoc@spxexpress.com",
-  "manhquan.tran@shopee.com",
-  "hongnhung.phannguyen@spxexpress.com",
+// WH mentions are determined dynamically per run, based on "Inbound WH" values:
+// contains "VNS" -> thanhngan.nguyenngoc, "VNN" -> manhquan.tran, "VNVL" -> hongnhung.phannguyen
+const WH_RULES = [
+  { code: "VNS", email: "thanhngan.nguyenngoc@spxexpress.com" },
+  { code: "VNN", email: "manhquan.tran@shopee.com" },
+  { code: "VNVL", email: "hongnhung.phannguyen@spxexpress.com" },
 ];
 const OPEX_EMAILS = [
   "ngoc.nguyenhongbao@shopee.com",
@@ -174,6 +177,7 @@ function buildMentionTags(emails) {
         bulky: cellValue(row, TRACKER_COLS.bulky),
         inventoryZone: cellValue(row, TRACKER_COLS.inventoryZone),
         allowShopeeMTF: cellValue(row, TRACKER_COLS.allowShopeeMTF),
+        ccEmail: cellValue(row, TRACKER_COLS.ccEmail),
       };
       if (needAlert === "new") newShops.push(shop);
       else updateShops.push(shop);
@@ -264,16 +268,42 @@ function buildMentionTags(emails) {
     }
 
     // --- Build text message: fixed template + role-based mention tags ---
-    const dsmMentionTags = buildMentionTags(DSM_EMAILS);
-    const whMentionTags = buildMentionTags(WH_EMAILS);
-    const opexMentionTags = buildMentionTags(OPEX_EMAILS);
+    // WH mentions: dynamic, based on "Inbound WH" values of the shops mapped this run
+    const whEmailSet = new Set();
+    for (const shop of combinedShops) {
+      const wh = (shop.inboundWH || "").toUpperCase();
+      for (const rule of WH_RULES) {
+        if (wh.includes(rule.code)) whEmailSet.add(rule.email);
+      }
+    }
+    const whEmails = Array.from(whEmailSet);
 
-    const finalText =
+    // Cc: unique emails from Tracker column N, across all shops mapped this run
+    const ccEmailSet = new Set();
+    for (const shop of combinedShops) {
+      const raw = shop.ccEmail || "";
+      for (const part of raw.split(/[,;]+/)) {
+        const e = part.trim();
+        if (e) ccEmailSet.add(e);
+      }
+    }
+    const ccEmails = Array.from(ccEmailSet);
+
+    const dsmMentionTags = buildMentionTags(DSM_EMAILS);
+    const whMentionTags = whEmails.length ? buildMentionTags(whEmails) : "";
+    const opexMentionTags = buildMentionTags(OPEX_EMAILS);
+    const ccMentionTags = ccEmails.length ? buildMentionTags(ccEmails) : "";
+
+    let finalText =
       "Dear DSM, WH, Opex team,\n" +
       `DSM: ${dsmMentionTags}\n` +
       `WH: ${whMentionTags}\n` +
       `Opex: ${opexMentionTags}\n` +
       "Welcome onboard the new premium shop with the following infomation as attachment below";
+
+    if (ccMentionTags) {
+      finalText += `\nCc: ${ccMentionTags}`;
+    }
 
     try {
       const textPayload = { tag: "text", text: { content: finalText } };
